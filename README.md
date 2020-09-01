@@ -2,6 +2,7 @@
 Формирование отчета по мердж реквестам
 
 ###Установка
+
 composer install
 
 mv .env.example .env
