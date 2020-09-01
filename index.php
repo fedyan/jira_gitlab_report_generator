@@ -39,7 +39,7 @@ foreach ($mergeRequests as $mr) {
     }
 
     $description = " 
-        Доработка АС Шиптор согласно заданию: 
+        Доработка проекта согласно заданию: 
         {$_ENV['JIRA_ISSUE_PATH']}{$issueCode}
         Содержимое работ: 
         {$issue->fields->description}";
