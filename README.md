@@ -1,8 +1,11 @@
-# jira_gitlab_report_generator
-Формирование отчета по мердж реквестам
+#Формирование отчета по мердж реквестам
 
-Установка:
+######Установка:
 
-composer install
+`composer install`
 
-mv .env.example .env
+`cp .env.example .env`
+
+######Пример запуск:
+
+`php -f index.php 01.07.2020 01.09.2020`

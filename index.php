@@ -11,36 +11,34 @@ $client = new Gitlab\Client();
 $client->setUrl($_ENV['GITLAB_URL']);
 $client->authenticate($_ENV['GITLAB_TOKEN'], Gitlab\Client::AUTH_HTTP_TOKEN);
 
+$fromDate = isset($argv[1]) && validateDate($argv[1]) ? new DateTime($argv[1]): new DateTime('-1 month');
+$toDate = isset($argv[2]) && validateDate($argv[2]) ? new DateTime($argv[2]): new DateTime();
 
 $mergeRequests = $client->mergeRequests()->all($_ENV['GITLAB_PROJECT_ID'], [
     'author_id' => intval($_ENV['GITLAB_AUTHOR_ID']),
     'per_page' => intval($_ENV['GITLAB_PER_PAGE']),
-    'created_after' => new DateTime('01.07.2020'),
-    'created_before' => new DateTime('01.09.2020')
+    'created_after' => $fromDate,
+    'created_before' => $toDate
 ]);
 
+$issueService = new IssueService();
 
 $rows = [];
 
 foreach ($mergeRequests as $mr) {
-
     echo sprintf("%d. [%s][%s] %s \n", $mr['id'], $mr['created_at'], $mr['state'], $mr['title']);
     $issueCode = parseIssueCode($mr['title']);
     if (!$issueCode) continue;
 
     try {
-        $issueService = new IssueService();
-
         $issue = $issueService->get($issueCode);
-
-
     } catch (JiraRestApi\JiraException $e) {
         print("Error Occured! " . $e->getMessage());
     }
 
     $description = " 
         Доработка проекта согласно заданию: 
-        {$_ENV['JIRA_ISSUE_PATH']}{$issueCode}
+        {$_ENV['JIRA_HOST']}/browse/{$issueCode}
         Содержимое работ: 
         {$issue->fields->description}";
 
@@ -55,7 +53,8 @@ foreach ($mergeRequests as $mr) {
         'title' => $issue->fields->summary,
         'description' => $description,
         'result' => $result,
-        'time' => calculateWorklog($issue->fields->worklog->worklogs, $_ENV['JIRA_USER'])
+        'time' => calculateWorklog($issue->fields->worklog->worklogs, $_ENV['JIRA_USER']),
+        'date' => (new DateTime($mr['created_at']))->format('d.m.Y')
     ];
 }
 
@@ -99,4 +98,11 @@ function calculateWorklog($worklogs, $userName)
 
         return $carry;
     });
+}
+
+function validateDate($date, $format = 'd.m.Y')
+{
+    $d = DateTime::createFromFormat($format, $date);
+
+    return $d && $d->format($format) == $date;
 }
