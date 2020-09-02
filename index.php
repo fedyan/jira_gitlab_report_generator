@@ -86,13 +86,16 @@ function parseIssueCode($title)
     return '';
 }
 
-
-
+/**
+ * @param $worklogs
+ * @param $userName
+ * @return mixed|null
+ */
 function calculateWorklog($worklogs, $userName)
 {
     return array_reduce($worklogs, function ( $carry , $worklog ) use ($userName){
 
-        if ( strtolower($worklog->author->name) === $userName) {
+        if ( strtolower($worklog->author->name) === strtolower($userName)) {
             $carry += round($worklog->timeSpentSeconds/3600, 1);
         }
 
@@ -100,6 +103,11 @@ function calculateWorklog($worklogs, $userName)
     });
 }
 
+/**
+ * @param $date
+ * @param string $format
+ * @return bool
+ */
 function validateDate($date, $format = 'd.m.Y')
 {
     $d = DateTime::createFromFormat($format, $date);
