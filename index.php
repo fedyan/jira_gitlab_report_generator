@@ -54,7 +54,8 @@ foreach ($mergeRequests as $mr) {
         'description' => $description,
         'result' => $result,
         'time' => calculateWorklog($issue->fields->worklog->worklogs, $_ENV['JIRA_USER']),
-        'date' => (new DateTime($mr['created_at']))->format('d.m.Y')
+        'date' => (new DateTime($mr['created_at']))->format('d.m.Y'),
+        'status' => $issue->fields->status->name
     ];
 }
 
