@@ -2,19 +2,21 @@
 require './vendor/autoload.php';
 
 use JiraRestApi\Issue\IssueService;
+use Gitlab\Client as GitlabClient;
+use JiraRestApi\JiraException;
+use Dotenv\Dotenv;
 
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+
+$dotenv = Dotenv::createImmutable(__DIR__);
 $dotenv->load();
-
-// Token authentication
-$client = new Gitlab\Client();
-$client->setUrl($_ENV['GITLAB_URL']);
-$client->authenticate($_ENV['GITLAB_TOKEN'], Gitlab\Client::AUTH_HTTP_TOKEN);
-
 $fromDate = isset($argv[1]) && validateDate($argv[1]) ? new DateTime($argv[1]): new DateTime('-1 month');
 $toDate = isset($argv[2]) && validateDate($argv[2]) ? new DateTime($argv[2]): new DateTime();
 
-$mergeRequests = $client->mergeRequests()->all($_ENV['GITLAB_PROJECT_ID'], [
+$gitlab = new GitlabClient();
+$gitlab->setUrl($_ENV['GITLAB_URL']);
+$gitlab->authenticate($_ENV['GITLAB_TOKEN'], GitlabClient::AUTH_HTTP_TOKEN);
+
+$mergeRequests = $gitlab->mergeRequests()->all($_ENV['GITLAB_PROJECT_ID'], [
     'author_id' => intval($_ENV['GITLAB_AUTHOR_ID']),
     'per_page' => intval($_ENV['GITLAB_PER_PAGE']),
     'created_after' => $fromDate,
@@ -22,9 +24,7 @@ $mergeRequests = $client->mergeRequests()->all($_ENV['GITLAB_PROJECT_ID'], [
 ]);
 
 $issueService = new IssueService();
-
 $rows = [];
-
 foreach ($mergeRequests as $mr) {
     echo sprintf("%d. [%s][%s] %s \n", $mr['id'], $mr['created_at'], $mr['state'], $mr['title']);
     $issueCode = parseIssueCode($mr['title']);
@@ -32,7 +32,7 @@ foreach ($mergeRequests as $mr) {
 
     try {
         $issue = $issueService->get($issueCode);
-    } catch (JiraRestApi\JiraException $e) {
+    } catch (JiraException $e) {
         print("Error Occured! " . $e->getMessage());
     }
 
