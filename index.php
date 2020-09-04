@@ -68,9 +68,7 @@ $fp = fopen('report.csv', 'w');
 foreach ($rows as $row) {
     fputcsv($fp, $row);
 }
-
 fclose($fp);
-
 echo "Csv file report.csv successfully saved.\n";
 
 /**
