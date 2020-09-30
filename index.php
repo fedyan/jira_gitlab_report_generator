@@ -36,9 +36,11 @@ foreach ($mergeRequests as $mr) {
         print("Error Occured! " . $e->getMessage());
     }
 
+    $taskLink = "{$_ENV['JIRA_HOST']}/browse/{$issueCode}";
+
     $description = " 
         Доработка проекта согласно заданию: 
-        {$_ENV['JIRA_HOST']}/browse/{$issueCode}
+        $taskLink
         Содержимое работ: 
         {$issue->fields->description}";
 
@@ -50,6 +52,8 @@ foreach ($mergeRequests as $mr) {
 
     $rows[$issueCode] = [
         'project' => $issue->fields->project->name,
+        'task' => $taskLink,
+        'realization' => 'Разработка',
         'title' => $issue->fields->summary,
         'description' => $description,
         'result' => $result,
