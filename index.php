@@ -19,14 +19,14 @@ $gitlab->authenticate($_ENV['GITLAB_TOKEN'], GitlabClient::AUTH_HTTP_TOKEN);
 $mergeRequests = $gitlab->mergeRequests()->all($_ENV['GITLAB_PROJECT_ID'], [
     'author_id' => intval($_ENV['GITLAB_AUTHOR_ID']),
     'per_page' => intval($_ENV['GITLAB_PER_PAGE']),
-    'created_after' => $fromDate,
+    //берутся мерджи добавленные заранее за 2 месяца. Задачи фильтруются по дате обновления в джире
+    'created_after' => (clone $fromDate)->modify('-2 month'),
     'created_before' => $toDate
 ]);
 
 $issueService = new IssueService();
 $rows = [];
 foreach ($mergeRequests as $mr) {
-    echo sprintf("%d. [%s][%s] %s \n", $mr['id'], $mr['created_at'], $mr['state'], $mr['title']);
     $issueCode = parseIssueCode($mr['title']);
     if (!$issueCode) continue;
 
@@ -50,8 +50,23 @@ foreach ($mergeRequests as $mr) {
         $result .= "\nЗадание находится на кодревью у заказчика.";
     }
 
+    $jiraTaskType = $issue->fields->issuetype->name;
+    $jiraStatus = $issue->fields->status->name;
+    $jiraUpdatedAt = $issue->fields->updated;
+    $jiraUpdateAtInSearchInterval = $jiraUpdatedAt >= $fromDate && $jiraUpdatedAt <= $toDate;
+
+    if ($mr['state'] === "closed"
+        || $jiraStatus !== 'DONE'
+        || !$jiraUpdateAtInSearchInterval
+    ) {
+         continue;
+    }
+
+    echo sprintf("%d. [%s][%s](%s) %s \n", $mr['id'], $mr['created_at'], $jiraUpdatedAt->format('d.m.Y H:i:s'), $mr['state'], $mr['title']);
+
     $rows[$issueCode] = [
         'project' => $issue->fields->project->name,
+        'type' => $jiraTaskType,
         'task' => $taskLink,
         'realization' => 'Разработка',
         'title' => $issue->fields->summary,
@@ -59,14 +74,13 @@ foreach ($mergeRequests as $mr) {
         'result' => $result,
         'time' => calculateWorklog($issue->fields->worklog->worklogs, $_ENV['JIRA_USER']),
         'date' => (new DateTime($mr['created_at']))->format('d.m.Y'),
-        'status' => $issue->fields->status->name
+        'status' => $jiraStatus,
     ];
 }
 
 usort($rows, function($a, $b){
     return strcmp($a['project'], $b['project']);
 });
-
 
 $fp = fopen('report.csv', 'w');
 foreach ($rows as $row) {
@@ -82,7 +96,7 @@ echo "Csv file report.csv successfully saved.\n";
 function parseIssueCode($title)
 {
     $title = trim($title);
-    if (preg_match('#^(\D*-\d*)\s#', $title, $matches)) {
+    if (preg_match('#([^\s]*-\d*)\s#', $title, $matches)) {
         return strtoupper($matches[1]);
     }
 
