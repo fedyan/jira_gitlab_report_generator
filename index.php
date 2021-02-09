@@ -26,20 +26,38 @@ $mergeRequests = $gitlab->mergeRequests()->all($_ENV['GITLAB_PROJECT_ID'], [
 
 $issueService = new IssueService();
 $rows = [];
+
+$jql = sprintf('status changed  to "Waiting for release" during ("%s", "%s")  and worklogAuthor = currentUser()',
+    $fromDate->format('Y-m-d'),
+    $toDate->format('Y-m-d')
+);
+
+$tasks = $issueService->search($jql, 0, 40, ['key', 'summary', 'worklog','status', 'project','issuetype', 'description']);
+$jiraTasksInPeriod = [];
+foreach ($tasks->issues as $issue) {
+    $jiraTasksInPeriod[$issue->key] = $issue;
+}
+
 foreach ($mergeRequests as $mr) {
     $issueCode = parseIssueCode($mr['title']);
     if (!$issueCode) continue;
 
-    try {
+    if (!array_key_exists($issueCode, $jiraTasksInPeriod)) {
+        continue;
+    }
+
+    $issue = $jiraTasksInPeriod[$issueCode];
+
+    /*try {
         $issue = $issueService->get($issueCode);
     } catch (JiraException $e) {
         print("Error Occured! " . $e->getMessage());
-    }
+    }*/
 
     $taskLink = "{$_ENV['JIRA_HOST']}/browse/{$issueCode}";
 
     $description = " 
-        Доработка проекта согласно заданию: 
+        Реализация согласно заданию: 
         $taskLink
         Содержимое работ: 
         {$issue->fields->description}";
@@ -52,17 +70,10 @@ foreach ($mergeRequests as $mr) {
 
     $jiraTaskType = $issue->fields->issuetype->name;
     $jiraStatus = $issue->fields->status->name;
-    $jiraUpdatedAt = $issue->fields->updated;
-    $jiraUpdateAtInSearchInterval = $jiraUpdatedAt >= $fromDate && $jiraUpdatedAt <= $toDate;
+    //$jiraUpdatedAt = $issue->fields->updated;
+    //$jiraUpdateAtInSearchInterval = $jiraUpdatedAt >= $fromDate && $jiraUpdatedAt <= $toDate;
 
-    if ($mr['state'] === "closed"
-        || $jiraStatus !== 'DONE'
-        || !$jiraUpdateAtInSearchInterval
-    ) {
-         continue;
-    }
-
-    echo sprintf("%d. [%s][%s](%s) %s \n", $mr['id'], $mr['created_at'], $jiraUpdatedAt->format('d.m.Y H:i:s'), $mr['state'], $mr['title']);
+    echo sprintf("%d. [%s][%s](%s) %s \n", $mr['id'], $mr['created_at'], $jiraStatus, $mr['state'], $mr['title']);
 
     $rows[$issueCode] = [
         'project' => $issue->fields->project->name,
