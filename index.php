@@ -38,6 +38,16 @@ foreach ($tasks->issues as $issue) {
     $jiraTasksInPeriod[$issue->key] = $issue;
 }
 
+$jql = sprintf('status changed  to "DONE" during ("%s", "%s")  and worklogAuthor = currentUser()',
+    $fromDate->format('Y-m-d'),
+    $toDate->format('Y-m-d')
+);
+
+$tasks = $issueService->search($jql, 0, 40, ['key', 'summary', 'worklog','status', 'project','issuetype', 'description']);
+foreach ($tasks->issues as $issue) {
+    $jiraTasksInPeriod[$issue->key] = $issue;
+}
+
 foreach ($mergeRequests as $mr) {
     $issueCode = parseIssueCode($mr['title']);
     if (!$issueCode) continue;
@@ -58,9 +68,9 @@ foreach ($mergeRequests as $mr) {
 
     $description = " 
         Реализация согласно заданию: 
-        $taskLink
-        Содержимое работ: 
-        {$issue->fields->description}";
+        $taskLink";
+        //Содержимое работ:
+        //{$issue->fields->description}";
 
     $result = "Приняты merge-request с исходным кодом в репозитории заказчика: \n {$mr['web_url']}";
 
@@ -77,20 +87,20 @@ foreach ($mergeRequests as $mr) {
 
     $rows[$issueCode] = [
         'project' => $issue->fields->project->name,
-        'type' => $jiraTaskType,
         'task' => $taskLink,
         'realization' => 'Разработка',
         'title' => $issue->fields->summary,
         'description' => $description,
         'result' => $result,
         'time' => calculateWorklog($issue->fields->worklog->worklogs, $_ENV['JIRA_USER']),
-        'date' => (new DateTime($mr['created_at']))->format('d.m.Y'),
+        //'date' => (new DateTime($mr['created_at']))->format('d.m.Y'),
         'status' => $jiraStatus,
+        'type' => $jiraTaskType
     ];
 }
 
 usort($rows, function($a, $b){
-    return strcmp($a['project'], $b['project']);
+    return strcmp($a['status'], $b['status']);
 });
 
 $fp = fopen('report.csv', 'w');
